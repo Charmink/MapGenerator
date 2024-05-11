@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using Random = System.Random;
 using Graphs;
@@ -33,6 +32,8 @@ public class Generator3D : MonoBehaviour {
     [SerializeField]
     Vector3Int roomMaxSize;
     [SerializeField]
+    Vector3Int roomMinSize;
+    [SerializeField]
     GameObject cubePrefab;
     [SerializeField]
     Material redMaterial;
@@ -54,8 +55,35 @@ public class Generator3D : MonoBehaviour {
 
         PlaceRooms();
         Triangulate();
+            //PlaceEdges();
         CreateHallways();
+            //PlaceSelectedEdges();
         PathfindHallways();
+    }
+    
+    void PlaceEdges()
+    {
+        for (int i = 0; i < delaunay.Edges.Count; i++)
+        {
+            Debug.DrawLine( new Vector3(delaunay.Edges[i].U.Position.x, delaunay.Edges[i].U.Position.y, delaunay.Edges[i].U.Position.z), new Vector3(delaunay.Edges[i].V.Position.x, delaunay.Edges[i].V.Position.y, delaunay.Edges[i].V.Position.z), Color.blue, 99999, false);
+            /*GameObject lineObject = new GameObject("Line" + i); // Создаем объект для линии
+            LineRenderer line = lineObject.AddComponent<LineRenderer>(); // Добавляем компонент LineRenderer
+            line.positionCount = 2;
+            line.SetPosition(0,  new Vector3(delaunay.Edges[i].U.Position.x, delaunay.Edges[i].U.Position.y, delaunay.Edges[i].U.Position.z));
+            line.SetPosition(1, new Vector3(delaunay.Edges[i].V.Position.x, delaunay.Edges[i].V.Position.y, delaunay.Edges[i].V.Position.z));
+            line.material = blueMaterial;*/
+        }
+    }
+    
+    void PlaceSelectedEdges()
+    {
+        var edgesEnumerator = selectedEdges.GetEnumerator();
+        while (edgesEnumerator.MoveNext())
+        {
+            var currentEdge = edgesEnumerator.Current;
+            Debug.DrawLine( new Vector3(currentEdge.U.Position.x, currentEdge.U.Position.y, currentEdge.U.Position.z), new Vector3(currentEdge.V.Position.x, currentEdge.V.Position.y, currentEdge.V.Position.z), Color.blue, 99999, false);
+        }
+      
     }
 
     void PlaceRooms() {
@@ -67,26 +95,28 @@ public class Generator3D : MonoBehaviour {
             );
 
             Vector3Int roomSize = new Vector3Int(
-                random.Next(1, roomMaxSize.x + 1),
-                random.Next(1, roomMaxSize.y + 1),
-                random.Next(1, roomMaxSize.z + 1)
+                random.Next(roomMinSize.x, roomMaxSize.x + 1),
+                random.Next(roomMinSize.y, roomMaxSize.y + 1),
+                random.Next(roomMinSize.z, roomMaxSize.z + 1)
             );
 
             bool add = true;
             Room newRoom = new Room(location, roomSize);
-            Room buffer = new Room(location + new Vector3Int(-1, 0, -1), roomSize + new Vector3Int(2, 0, 2));
+            Room buffer = new Room(location + new Vector3Int(-1, 0, -1), roomSize + new Vector3Int(2, 2, 2));
 
             foreach (var room in rooms) {
                 if (Room.Intersect(room, buffer)) {
                     add = false;
+                    i--;
                     break;
                 }
             }
 
-            if (newRoom.bounds.xMin < 0 || newRoom.bounds.xMax >= size.x
-                || newRoom.bounds.yMin < 0 || newRoom.bounds.yMax >= size.y
-                || newRoom.bounds.zMin < 0 || newRoom.bounds.zMax >= size.z) {
+            if (newRoom.bounds.xMin <= 0 || newRoom.bounds.xMax >= size.x - 1
+                || newRoom.bounds.yMin <= 0 || newRoom.bounds.yMax >= size.y - 1
+                || newRoom.bounds.zMin <= 0 || newRoom.bounds.zMax >= size.z - 1) {
                 add = false;
+                i--;
             }
 
             if (add) {
@@ -104,7 +134,7 @@ public class Generator3D : MonoBehaviour {
         List<Vertex> vertices = new List<Vertex>();
 
         foreach (var room in rooms) {
-            vertices.Add(new Vertex<Room>((Vector3)room.bounds.position + ((Vector3)room.bounds.size) / 2, room));
+            vertices.Add(new Vertex<Room>(room.bounds.position, room));
         }
 
         delaunay = Delaunay3D.Triangulate(vertices);
@@ -137,8 +167,8 @@ public class Generator3D : MonoBehaviour {
             var startRoom = (edge.U as Vertex<Room>).Item;
             var endRoom = (edge.V as Vertex<Room>).Item;
 
-            var startPosf = startRoom.bounds.center;
-            var endPosf = endRoom.bounds.center;
+            var startPosf = startRoom.bounds.position;
+            var endPosf = endRoom.bounds.position;
             var startPos = new Vector3Int((int)startPosf.x, (int)startPosf.y, (int)startPosf.z);
             var endPos = new Vector3Int((int)endPosf.x, (int)endPosf.y, (int)endPosf.z);
 

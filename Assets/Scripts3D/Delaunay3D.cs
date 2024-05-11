@@ -24,9 +24,6 @@ public class Delaunay3D {
         }
 
         void CalculateCircumsphere() {
-            //calculate the circumsphere of a tetrahedron
-            //http://mathworld.wolfram.com/Circumsphere.html
-
             float a = new Matrix4x4(
                 new Vector4(A.Position.x, B.Position.x, C.Position.x, D.Position.x),
                 new Vector4(A.Position.y, B.Position.y, C.Position.y, D.Position.y),

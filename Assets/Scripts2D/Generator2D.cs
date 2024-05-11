@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Random = System.Random;
@@ -31,6 +32,8 @@ public class Generator2D : MonoBehaviour {
     [SerializeField]
     Vector2Int roomMaxSize;
     [SerializeField]
+    Vector2Int roomMinSize;
+    [SerializeField]
     GameObject cubePrefab;
     [SerializeField]
     Material redMaterial;
@@ -42,7 +45,6 @@ public class Generator2D : MonoBehaviour {
     List<Room> rooms;
     Delaunay2D delaunay;
     HashSet<Prim.Edge> selectedEdges;
-
     void Start() {
         Generate();
     }
@@ -54,8 +56,48 @@ public class Generator2D : MonoBehaviour {
 
         PlaceRooms();
         Triangulate();
+        //PlaceEdges();
         CreateHallways();
+            // PlaceSelectedEdges();
         PathfindHallways();
+    }
+
+    void PlaceEdgesS()
+    {
+        for (int i = 0; i < delaunay.Edges.Count; i++)
+        {
+            GameObject lineObject = new GameObject("Line" + i); // Создаем объект для линии
+            LineRenderer line = lineObject.AddComponent<LineRenderer>(); // Добавляем компонент LineRenderer
+            line.positionCount = 2;
+            line.SetPosition(0,new Vector3(delaunay.Edges[i].U.Position.x, 0, delaunay.Edges[i].U.Position.y));
+            line.SetPosition(1, new Vector3(delaunay.Edges[i].V.Position.x, 0, delaunay.Edges[i].V.Position.y));
+            line.material = blueMaterial;
+        }
+    }
+    
+    void PlaceEdges()
+    {
+        for (int i = 0; i < delaunay.Edges.Count; i++)
+        {
+            Debug.DrawLine( new Vector3(delaunay.Edges[i].U.Position.x,  delaunay.Edges[i].U.Position.z, delaunay.Edges[i].U.Position.y), new Vector3(delaunay.Edges[i].V.Position.x, delaunay.Edges[i].V.Position.z, delaunay.Edges[i].V.Position.y), Color.blue, 99999, false);
+            /*GameObject lineObject = new GameObject("Line" + i); // Создаем объект для линии
+            LineRenderer line = lineObject.AddComponent<LineRenderer>(); // Добавляем компонент LineRenderer
+            line.positionCount = 2;
+            line.SetPosition(0,  new Vector3(delaunay.Edges[i].U.Position.x, delaunay.Edges[i].U.Position.y, delaunay.Edges[i].U.Position.z));
+            line.SetPosition(1, new Vector3(delaunay.Edges[i].V.Position.x, delaunay.Edges[i].V.Position.y, delaunay.Edges[i].V.Position.z));
+            line.material = blueMaterial;*/
+        }
+    }
+    
+    void PlaceSelectedEdges()
+    {
+        var edgesEnumerator = selectedEdges.GetEnumerator();
+        while (edgesEnumerator.MoveNext())
+        {
+            var currentEdge = edgesEnumerator.Current;
+            Debug.DrawLine( new Vector3(currentEdge.U.Position.x,  currentEdge.U.Position.z, currentEdge.U.Position.y), new Vector3(currentEdge.V.Position.x, currentEdge.V.Position.z, currentEdge.V.Position.y), Color.blue, 99999, false);
+        }
+      
     }
 
     void PlaceRooms() {
@@ -66,17 +108,18 @@ public class Generator2D : MonoBehaviour {
             );
 
             Vector2Int roomSize = new Vector2Int(
-                random.Next(1, roomMaxSize.x + 1),
-                random.Next(1, roomMaxSize.y + 1)
+                random.Next(roomMinSize.x, roomMaxSize.x + 1),
+                random.Next(roomMinSize.y, roomMaxSize.y + 1)
             );
 
             bool add = true;
             Room newRoom = new Room(location, roomSize);
-            Room buffer = new Room(location + new Vector2Int(-1, -1), roomSize + new Vector2Int(2, 2));
+            Room buffer = new Room(location + new Vector2Int(-2, -2), roomSize + new Vector2Int(3, 3));
 
             foreach (var room in rooms) {
                 if (Room.Intersect(room, buffer)) {
                     add = false;
+                    i--;
                     break;
                 }
             }
@@ -84,6 +127,7 @@ public class Generator2D : MonoBehaviour {
             if (newRoom.bounds.xMin < 0 || newRoom.bounds.xMax >= size.x
                 || newRoom.bounds.yMin < 0 || newRoom.bounds.yMax >= size.y) {
                 add = false;
+                i--;
             }
 
             if (add) {
@@ -133,9 +177,8 @@ public class Generator2D : MonoBehaviour {
         foreach (var edge in selectedEdges) {
             var startRoom = (edge.U as Vertex<Room>).Item;
             var endRoom = (edge.V as Vertex<Room>).Item;
-
-            var startPosf = startRoom.bounds.center;
-            var endPosf = endRoom.bounds.center;
+            var startPosf = startRoom.bounds.position;
+            var endPosf = endRoom.bounds.position;
             var startPos = new Vector2Int((int)startPosf.x, (int)startPosf.y);
             var endPos = new Vector2Int((int)endPosf.x, (int)endPosf.y);
 
@@ -147,9 +190,9 @@ public class Generator2D : MonoBehaviour {
                 if (grid[b.Position] == CellType.Room) {
                     pathCost.cost += 10;
                 } else if (grid[b.Position] == CellType.None) {
-                    pathCost.cost += 5;
-                } else if (grid[b.Position] == CellType.Hallway) {
                     pathCost.cost += 1;
+                } else if (grid[b.Position] == CellType.Hallway) {
+                    pathCost.cost += 15;
                 }
 
                 pathCost.traversable = true;
@@ -160,16 +203,7 @@ public class Generator2D : MonoBehaviour {
             if (path != null) {
                 for (int i = 0; i < path.Count; i++) {
                     var current = path[i];
-
-                    if (grid[current] == CellType.None) {
-                        grid[current] = CellType.Hallway;
-                    }
-
-                    if (i > 0) {
-                        var prev = path[i - 1];
-
-                        var delta = current - prev;
-                    }
+                    grid[current] = CellType.Hallway;
                 }
 
                 foreach (var pos in path) {

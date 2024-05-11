@@ -143,6 +143,7 @@ public class Delaunay2D {
     }
 
     void Triangulate() {
+        // Нахождение минимальных и максимальных значений x и y среди вершин
         float minX = Vertices[0].Position.x;
         float minY = Vertices[0].Position.y;
         float maxX = minX;
@@ -155,57 +156,61 @@ public class Delaunay2D {
             if (vertex.Position.y > maxY) maxY = vertex.Position.y;
         }
 
+        // Вычисление разницы между минимальными и максимальными значениями x и y
         float dx = maxX - minX;
         float dy = maxY - minY;
-        float deltaMax = Mathf.Max(dx, dy) * 2;
+        float deltaMax = Mathf.Max(dx, dy) * 2; // Вычисление максимальной дельты для образования начального треугольника
 
-        Vertex p1 = new Vertex(new Vector2(minX - 1         , minY - 1          ));
-        Vertex p2 = new Vertex(new Vector2(minX - 1         , maxY + deltaMax   ));
-        Vertex p3 = new Vertex(new Vector2(maxX + deltaMax  , minY - 1          ));
-
-        Triangles.Add(new Triangle(p1, p2, p3));
+        // Создание начального треугольника, охватывающего все вершины
+        Vertex p1 = new Vertex(new Vector2(minX - 1, minY - 1));
+        Vertex p2 = new Vertex(new Vector2(minX - 1, maxY + deltaMax));
+        Vertex p3 = new Vertex(new Vector2(maxX + deltaMax, minY - 1));
+        Triangles.Add(new Triangle(p1, p2, p3)); // Добавление начального треугольника в список треугольников
 
         foreach (var vertex in Vertices) {
-            List<Edge> polygon = new List<Edge>();
+            List<Edge> polygon = new List<Edge>(); // Создание списка рёбер для текущей вершины
 
             foreach (var t in Triangles) {
                 if (t.CircumCircleContains(vertex.Position)) {
-                    t.IsBad = true;
-                    polygon.Add(new Edge(t.A, t.B));
+                    t.IsBad = true; // Помечание треугольника как "плохого", если содержит данную вершину в окружности
+                    polygon.Add(new Edge(t.A, t.B)); // Добавление рёбер треугольника в список рёбер многоугольника
                     polygon.Add(new Edge(t.B, t.C));
                     polygon.Add(new Edge(t.C, t.A));
                 }
             }
 
-            Triangles.RemoveAll((Triangle t) => t.IsBad);
+            Triangles.RemoveAll((Triangle t) => t.IsBad); // Удаление всех "плохих" треугольников из списка треугольников
 
             for (int i = 0; i < polygon.Count; i++) {
                 for (int j = i + 1; j < polygon.Count; j++) {
                     if (Edge.AlmostEqual(polygon[i], polygon[j])) {
-                        polygon[i].IsBad = true;
+                        polygon[i].IsBad = true; // Пометка рёбер как "плохих", если они почти идентичны
                         polygon[j].IsBad = true;
                     }
                 }
             }
 
-            polygon.RemoveAll((Edge e) => e.IsBad);
+            polygon.RemoveAll((Edge e) => e.IsBad); // Удаление всех "плохих" рёбер из списка рёбер многоугольника
 
+            // Создание новых треугольников с использованием рёбер многоугольника и текущей вершины
             foreach (var edge in polygon) {
                 Triangles.Add(new Triangle(edge.U, edge.V, vertex));
             }
         }
 
+        // Удаление начального треугольника из списка треугольников
         Triangles.RemoveAll((Triangle t) => t.ContainsVertex(p1.Position) || t.ContainsVertex(p2.Position) || t.ContainsVertex(p3.Position));
 
-        HashSet<Edge> edgeSet = new HashSet<Edge>();
+        HashSet<Edge> edgeSet = new HashSet<Edge>(); // Создание множества для уникальных рёбер
 
+        // Формирование списка уникальных рёбер из треугольников
         foreach (var t in Triangles) {
             var ab = new Edge(t.A, t.B);
             var bc = new Edge(t.B, t.C);
             var ca = new Edge(t.C, t.A);
 
             if (edgeSet.Add(ab)) {
-                Edges.Add(ab);
+                Edges.Add(ab); // Добавление уникальных рёбер в список рёбер
             }
 
             if (edgeSet.Add(bc)) {
